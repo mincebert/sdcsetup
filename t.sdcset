@@ -12,9 +12,10 @@ OSASCI=&FFE3
 OSNEWL=&FFE7
 XOSCLI=&FFF7
 :
-REM cr = *SDCCONFIG, xcr = other *command
-cr$=CHR$(13)
-xcr$=CHR$(14)
+REM cr = other *command
+REM sdccr = *SDCCONFIG
+end_os$=CHR$(1)
+end_sdc$=CHR$(2)
 :
 FOR pass%=4 TO 6 STEP 2
 P%=target%
@@ -117,7 +118,7 @@ STA oscmdbuff,Y
 \ anything <32 is end of line
 CMP #32
 BPL runcopyloop
-\ store terminating character
+\ terminating character in X
 TAX
 \ but store CR at end anyway
 LDA #13
@@ -131,8 +132,10 @@ BCC runos
 INC scratch+1
 :
 .runos
-\ CR = SDCCONFIG else misc *command
-CPX #13
+\ end character also indicates
+\ type of command - other *misc
+\ or *SDCCONFIG
+CPX #ASC(end_sdc$)
 BEQ runsdccmd
 LDY #oscmdbuff-oscmdstart-1 AND &FF
 LDX #oscmdbuff MOD 256
@@ -189,50 +192,50 @@ EQUB 13
 :
 \ setup command sets
 .setup_zero
-EQUS "FSNR 0"+cr$
-EQUS "F2NR 0"+cr$
-EQUS "ROM4 0"+cr$
-EQUS "ROME 0"+cr$
+EQUS "FSNR 0"+end_sdc$
+EQUS "F2NR 0"+end_sdc$
+EQUS "ROM4 0"+end_sdc$
+EQUS "ROME 0"+end_sdc$
 EQUB 0
 .setup_b
-EQUS "FSNR 2"+cr$
-EQUS "F2NR 0"+cr$
-EQUS "ROM4 2"+cr$
-EQUS "ROME 1"+cr$
+EQUS "FSNR 2"+end_sdc$
+EQUS "F2NR 0"+end_sdc$
+EQUS "ROM4 2"+end_sdc$
+EQUS "ROME 1"+end_sdc$
 EQUB 0
 .setup_bplus
-EQUS "FSNR 2"+cr$
-EQUS "F2NR 3"+cr$
-EQUS "ROM4 2"+cr$
-EQUS "ROME 1"+cr$
+EQUS "FSNR 2"+end_sdc$
+EQUS "F2NR 3"+end_sdc$
+EQUS "ROM4 2"+end_sdc$
+EQUS "ROME 1"+end_sdc$
 EQUB 0
 .setup_master320
-EQUS "FSNR 4"+cr$
-EQUS "F2NR 5"+cr$
-EQUS "ROM4 2"+cr$
-EQUS "ROME 0"+cr$
+EQUS "FSNR 4"+end_sdc$
+EQUS "F2NR 5"+end_sdc$
+EQUS "ROM4 2"+end_sdc$
+EQUS "ROME 0"+end_sdc$
 EQUB 0
 .setup_master350
-EQUS "FSNR 6"+cr$
-EQUS "F2NR 7"+cr$
-EQUS "ROM4 2"+cr$
-EQUS "ROME 0"+cr$
+EQUS "FSNR 6"+end_sdc$
+EQUS "F2NR 7"+end_sdc$
+EQUS "ROM4 2"+end_sdc$
+EQUS "ROME 0"+end_sdc$
 EQUB 0
 .setup_masterdisc
-EQUS "FSNR 0"+cr$
-EQUS "F2NR 0"+cr$
-EQUS "ROM4 0"+cr$
-EQUS "INSERT 9"+xcr$
-EQUS "INSERT &D"+xcr$
-EQUS "CONFIGURE FILE 9"+xcr$
+EQUS "FSNR 0"+end_sdc$
+EQUS "F2NR 0"+end_sdc$
+EQUS "ROM4 0"+end_sdc$
+EQUS "INSERT 9"+end_os$
+EQUS "INSERT &D"+end_os$
+EQUS "CONFIGURE FILE 9"+end_os$
 EQUB 0
 .setup_mastersdc
-EQUS "FSNR 6"+cr$
-EQUS "F2NR 7"+cr$
-EQUS "ROM4 2"+cr$
-EQUS "UNPLUG 9"+xcr$
-EQUS "UNPLUG &D"+xcr$
-EQUS "CONFIGURE FILE 5"+xcr$
+EQUS "FSNR 6"+end_sdc$
+EQUS "F2NR 7"+end_sdc$
+EQUS "ROM4 2"+end_sdc$
+EQUS "UNPLUG 9"+end_os$
+EQUS "UNPLUG &D"+end_os$
+EQUS "CONFIGURE FILE 5"+end_os$
 EQUB 0
 .endcode
 ]
@@ -254,7 +257,7 @@ REM blank unused bytes for
 REM neatness
 IF oscmdstart>endcode THEN FOR byte%=endcode TO oscmdstart-1:code%?(byte%-target%)=0:NEXT
 :
-PRINT "*SAVE - ";~code%;"+";~(O%-code%);" ";~target%;" ";~target%
+PRINT "Assembled at &";~code%;"+";~(O%-code%);" ";~target%;" ";~target%
 :
 END
 :
