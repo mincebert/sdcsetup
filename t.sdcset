@@ -1,6 +1,8 @@
 AUTO
 REM>SDCSetup
-REM v1.0 rcf@mince.net
+REM rcf@mince.net
+:
+version$="v1.0"
 :
 DIM code% &500
 target%=&2000
@@ -180,6 +182,9 @@ EQUW setup_masterdisc
 EQUS "M-SDC"
 EQUB -1
 EQUW setup_mastersdc
+EQUS "VERSION"
+EQUB -1
+EQUW setup_version
 EQUB 0
 :
 .endsetupsmsg
@@ -252,6 +257,11 @@ EQUS "ROM4 2"+end_sdc$
 EQUS "UNPLUG 9"+end_os$
 EQUS "UNPLUG &D"+end_os$
 EQUS "CONFIGURE FILE 5"+end_os$
+EQUB 0
+:
+.setup_version
+\ version number as a comment
+EQUS "| "+version$+end_os$
 EQUB 0
 .endcode
 ]
