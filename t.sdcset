@@ -28,6 +28,12 @@ JMP start
 EQUW 0
 :
 .start
+\ preserve scatch on stack
+LDA scratch
+PHA
+LDA scratch+1
+PHA
+\
 \ store cmd line base at scratch
 LDA cmdline
 STA scratch
@@ -51,7 +57,7 @@ LDX #255
 INX
 LDA setuptable,X
 BMI listnext
-BEQ listend
+BEQ exit
 JSR OSASCI
 JMP listsetupsloop
 .listnext
@@ -60,7 +66,13 @@ JSR OSNEWL
 INX
 INX
 JMP listsetupsloop
-.listend
+:
+.exit
+\ restore scratch area
+PLA
+STA scratch+1
+PLA
+STA scratch
 RTS
 :
 \ check setup for match
@@ -96,7 +108,7 @@ LDA endsetupsmsg,Y
 JSR OSASCI
 CMP #13
 BNE endsetupsloop
-RTS
+JMP exit
 :
 .endsetup
 \ did entered setup also end?
@@ -115,14 +127,15 @@ LDY #255
 .runcopyloop
 INY
 LDA (scratch),Y
-BEQ runend
+\ 0 = end of commands
+BEQ exit
 STA oscmdbuff,Y
-\ anything <32 is end of line
+\ <32 = end of line
 CMP #32
 BPL runcopyloop
 \ terminating character in X
 TAX
-\ but store CR at end anyway
+\ overwrite with CR
 LDA #13
 STA oscmdbuff,Y
 TYA
@@ -158,7 +171,7 @@ LDY #oscmdstart DIV 256
 JSR XOSCLI
 JMP runcopy
 .runend
-RTS
+JMP exit
 :
 .setuptable
 EQUS "ZERO"
