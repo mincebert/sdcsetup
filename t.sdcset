@@ -1,0 +1,272 @@
+AUTO
+REM>SDCSetup
+REM v1.0 rcf@mince.net
+:
+DIM code% &500
+target%=&2000
+:
+REM need 2 bytes in zero page
+scratch=&70
+:
+OSASCI=&FFE3
+OSNEWL=&FFE7
+XOSCLI=&FFF7
+:
+REM cr = *SDCCONFIG, xcr = other *command
+cr$=CHR$(13)
+xcr$=CHR$(14)
+:
+FOR pass%=4 TO 6 STEP 2
+P%=target%
+O%=code%
+[ OPT pass%
+JMP start
+.cmdline
+EQUW 0
+:
+.start
+\ store cmd line base at scratch
+LDA cmdline
+STA scratch
+LDA cmdline+1
+STA scratch+1
+LDY #0
+LDA (scratch),Y
+CMP #13
+BNE setupcheck
+:
+\ list available setups
+LDX #255
+.listmsgloop
+INX
+LDA listmsg,X
+JSR OSASCI
+CMP #13
+BNE listmsgloop
+LDX #255
+.listsetupsloop
+INX
+LDA setuptable,X
+BMI listnext
+BEQ listend
+JSR OSASCI
+JMP listsetupsloop
+.listnext
+JSR OSNEWL
+\ skip 0 and ptr LSB
+INX
+INX
+JMP listsetupsloop
+.listend
+RTS
+:
+\ check setup for match
+.setupcheck
+\ initialise setup table ptr
+LDX #255
+LDY #255
+.setupcmp
+INX
+INY
+LDA setuptable,X
+BMI endsetup
+BEQ endsetups
+CMP (scratch),Y
+BEQ setupcmp
+.setupnext
+INX
+LDA setuptable,X
+BPL setupnext
+.setupskipptr
+\ skip setup 0 + ptr LSB
+INX
+INX
+LDY #255
+JMP setupcmp
+:
+\ unknown setup error
+.endsetups
+LDY #255
+.endsetupsloop
+INY
+LDA endsetupsmsg,Y
+JSR OSASCI
+CMP #13
+BNE endsetupsloop
+RTS
+:
+.endsetup
+\ did entered setup also end?
+LDA (scratch),Y
+CMP #13
+BNE setupskipptr
+:
+\ matched setup - get commands
+LDA setuptable+1,X
+STA scratch
+LDA setuptable+2,X
+STA scratch+1
+:
+.runcopy
+LDY #255
+.runcopyloop
+INY
+LDA (scratch),Y
+BEQ runend
+STA oscmdbuff,Y
+\ anything <32 is end of line
+CMP #32
+BPL runcopyloop
+\ store terminating character
+TAX
+\ but store CR at end anyway
+LDA #13
+STA oscmdbuff,Y
+TYA
+\ move ptr to next command
+SEC \ saves another INY
+ADC scratch
+STA scratch
+BCC runos
+INC scratch+1
+:
+.runos
+\ CR = SDCCONFIG else misc *command
+CPX #13
+BEQ runsdccmd
+LDY #oscmdbuff-oscmdstart-1 AND &FF
+LDX #oscmdbuff MOD 256
+JMP runcmd
+.runsdccmd
+LDY #255
+LDX #oscmdstart MOD 256
+.runcmd
+LDA #ASC("*")
+JSR OSASCI
+.runprintloop
+INY
+LDA oscmdstart,Y
+JSR OSASCI
+CMP #13
+BNE runprintloop
+LDY #oscmdstart DIV 256
+JSR XOSCLI
+JMP runcopy
+.runend
+RTS
+:
+.setuptable
+EQUS "ZERO"
+EQUB -1
+EQUW setup_zero
+EQUS "B"
+EQUB -1
+EQUW setup_b
+EQUS "B+"
+EQUB -1
+EQUW setup_bplus
+EQUS "M320"
+EQUB -1
+EQUW setup_master320
+EQUS "M"
+EQUB -1
+EQUW setup_master350
+EQUS "M-DISC"
+EQUB -1
+EQUW setup_masterdisc
+EQUS "M-SDC"
+EQUB -1
+EQUW setup_mastersdc
+EQUB 0
+:
+.endsetupsmsg
+EQUS "Unknown setup"
+EQUB 13
+:
+.listmsg
+EQUS "Available setups:"
+EQUB 13
+:
+\ setup command sets
+.setup_zero
+EQUS "FSNR 0"+cr$
+EQUS "F2NR 0"+cr$
+EQUS "ROM4 0"+cr$
+EQUS "ROME 0"+cr$
+EQUB 0
+.setup_b
+EQUS "FSNR 2"+cr$
+EQUS "F2NR 0"+cr$
+EQUS "ROM4 2"+cr$
+EQUS "ROME 1"+cr$
+EQUB 0
+.setup_bplus
+EQUS "FSNR 2"+cr$
+EQUS "F2NR 3"+cr$
+EQUS "ROM4 2"+cr$
+EQUS "ROME 1"+cr$
+EQUB 0
+.setup_master320
+EQUS "FSNR 4"+cr$
+EQUS "F2NR 5"+cr$
+EQUS "ROM4 2"+cr$
+EQUS "ROME 0"+cr$
+EQUB 0
+.setup_master350
+EQUS "FSNR 6"+cr$
+EQUS "F2NR 7"+cr$
+EQUS "ROM4 2"+cr$
+EQUS "ROME 0"+cr$
+EQUB 0
+.setup_masterdisc
+EQUS "FSNR 0"+cr$
+EQUS "F2NR 0"+cr$
+EQUS "ROM4 0"+cr$
+EQUS "INSERT 9"+xcr$
+EQUS "INSERT &D"+xcr$
+EQUS "CONFIGURE FILE 9"+xcr$
+EQUB 0
+.setup_mastersdc
+EQUS "FSNR 6"+cr$
+EQUS "F2NR 7"+cr$
+EQUS "ROM4 2"+cr$
+EQUS "UNPLUG 9"+xcr$
+EQUS "UNPLUG &D"+xcr$
+EQUS "CONFIGURE FILE 5"+xcr$
+EQUB 0
+.endcode
+]
+:
+REM align command buffer to page
+REM simplifies code and we don't
+REM mind wasting bytes
+oldP%=P%
+P%=(P%+&FF) AND &FF00
+O%=O%+(P%-oldP%)
+[ OPT pass%
+.oscmdstart
+EQUS "SDCCONFIG "
+.oscmdbuff
+]
+NEXT
+:
+REM blank unused bytes for
+REM neatness
+IF oscmdstart>endcode THEN FOR byte%=endcode TO oscmdstart-1:code%?(byte%-target%)=0:NEXT
+:
+PRINT "*SAVE - ";~code%;"+";~(O%-code%);" ";~target%;" ";~target%
+:
+END
+:
+DEFPROCtest
+LOCAL setupcmd,setup$
+IF code%<>target% THEN PRINT "Offset assembled - cannot run":STOP
+DIM setupcmd 256
+cmdline?0=setupcmd MOD 256
+cmdline?1=setupcmd DIV 256
+REPEAT
+INPUT "=>*SDCTOOL SETUP ";setup$
+IF LEFT$(setup$,1)="*" THEN OSCLI MID$(setup$,2) ELSE $setupcmd=setup$:CALL code%
+PRINT
+UNTIL FALSE
+ENDPROC

@@ -1,0 +1,13 @@
+#!/bin/sh
+
+# convert *SPOOL + LIST output to *EXECable script on BBC
+
+# add AUTO at the top to add line numbers
+# remove entered commands (with prompt at start), e.g. >LIST
+# skip blank lines
+# strip BASIC line numbers
+# translate the BBC line ending character CR to Unix LF
+
+awk 'BEGIN { print "AUTO" } \
+     (!/^>/ && !(/^\r$/)) { sub("^\r? *[0-9]+", ""); sub("\r$", ""); print }' \
+     $*
