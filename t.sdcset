@@ -2,7 +2,7 @@ AUTO
 REM>SDCSetup
 REM rcf@mince.net
 :
-version$="v1.0"
+version$="v1.1"
 :
 DIM code% &500
 target%=&2000
