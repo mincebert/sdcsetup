@@ -12,8 +12,8 @@ OSASCI=&FFE3
 OSNEWL=&FFE7
 XOSCLI=&FFF7
 :
-REM cr = other *command
-REM sdccr = *SDCCONFIG
+REM end_os = misc *command
+REM end_sdc = *SDCCONFIG
 end_os$=CHR$(1)
 end_sdc$=CHR$(2)
 :
@@ -192,36 +192,50 @@ EQUB 13
 :
 \ setup command sets
 .setup_zero
+\ resets settings we change
+\ also enables DFS on MOS 1.20
+\ and 2.00 (since no *UNPLUG)
 EQUS "FSNR 0"+end_sdc$
 EQUS "F2NR 0"+end_sdc$
 EQUS "ROM4 0"+end_sdc$
 EQUS "ROME 0"+end_sdc$
 EQUB 0
 .setup_b
+\ MOS 1.20 with GoSDC
 EQUS "FSNR 2"+end_sdc$
 EQUS "F2NR 0"+end_sdc$
 EQUS "ROM4 2"+end_sdc$
-EQUS "ROME 1"+end_sdc$
+EQUS "ROME 1"+end_sdc$ \ = DFS
 EQUB 0
+:
 .setup_bplus
+\ MOS 2.00 with GoSDC
 EQUS "FSNR 2"+end_sdc$
 EQUS "F2NR 3"+end_sdc$
 EQUS "ROM4 2"+end_sdc$
-EQUS "ROME 1"+end_sdc$
+EQUS "ROME 1"+end_sdc$ \ = DFS
 EQUB 0
+:
 .setup_master320
+\ MOS 3.20 with GoSDC (from
+\ non-Master MOS)
 EQUS "FSNR 4"+end_sdc$
 EQUS "F2NR 5"+end_sdc$
 EQUS "ROM4 2"+end_sdc$
 EQUS "ROME 0"+end_sdc$
 EQUB 0
+:
 .setup_master350
+\ MOS 3.50 with GoSDC (from
+\ non-Master MOS)
 EQUS "FSNR 6"+end_sdc$
 EQUS "F2NR 7"+end_sdc$
 EQUS "ROM4 2"+end_sdc$
 EQUS "ROME 0"+end_sdc$
 EQUB 0
+:
 .setup_masterdisc
+\ MOS 3.50 with disc DFS+ADFS
 EQUS "FSNR 0"+end_sdc$
 EQUS "F2NR 0"+end_sdc$
 EQUS "ROM4 0"+end_sdc$
@@ -229,7 +243,9 @@ EQUS "INSERT 9"+end_os$
 EQUS "INSERT &D"+end_os$
 EQUS "CONFIGURE FILE 9"+end_os$
 EQUB 0
+:
 .setup_mastersdc
+\ MOS 3.50 with GoSDC DFS+ADFS
 EQUS "FSNR 6"+end_sdc$
 EQUS "F2NR 7"+end_sdc$
 EQUS "ROM4 2"+end_sdc$
