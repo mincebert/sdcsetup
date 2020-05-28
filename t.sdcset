@@ -2,10 +2,11 @@ AUTO
 REM>SDCSetup
 REM rcf@mince.net
 :
-version$="v1.1"
+version$="v1.2"
+test%=FALSE
 :
 DIM code% &500
-target%=&2000
+IF NOT(test%) THEN target%=&2000 ELSE target%=code%
 :
 REM need 2 bytes in zero page
 scratch=&70
@@ -218,6 +219,7 @@ EQUS "F2NR 0"+end_sdc$
 EQUS "ROM4 0"+end_sdc$
 EQUS "ROME 0"+end_sdc$
 EQUB 0
+:
 .setup_b
 \ MOS 1.20 with GoSDC
 EQUS "FSNR 2"+end_sdc$
@@ -284,7 +286,7 @@ REM simplifies code and we don't
 REM mind wasting bytes
 oldP%=P%
 P%=(P%+&FF) AND &FF00
-O%=O%+(P%-oldP%)
+O%=O%+P%-oldP%
 [ OPT pass%
 .oscmdstart
 EQUS "SDCCONFIG "
@@ -292,17 +294,14 @@ EQUS "SDCCONFIG "
 ]
 NEXT
 :
-REM blank unused bytes for
-REM neatness
+REM blank unused bytes between
+REM code and buffer for neatness
 IF oscmdstart>endcode THEN FOR byte%=endcode TO oscmdstart-1:code%?(byte%-target%)=0:NEXT
 :
 PRINT "Assembled at &";~code%;"+";~(O%-code%);" ";~target%;" ";~target%
+IF NOT(test%) THEN END
 :
-END
-:
-DEFPROCtest
-LOCAL setupcmd,setup$
-IF code%<>target% THEN PRINT "Offset assembled - cannot run":STOP
+REM test routine
 DIM setupcmd 256
 cmdline?0=setupcmd MOD 256
 cmdline?1=setupcmd DIV 256
@@ -311,4 +310,3 @@ INPUT "=>*SDCTOOL SETUP ";setup$
 IF LEFT$(setup$,1)="*" THEN OSCLI MID$(setup$,2) ELSE $setupcmd=setup$:CALL code%
 PRINT
 UNTIL FALSE
-ENDPROC
