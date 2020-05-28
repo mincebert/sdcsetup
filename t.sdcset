@@ -4,7 +4,7 @@ AUTO
 REM>SDCSetup
 REM rcf@mince.net
 :
-version$="v1.2"
+version$="v1.3"
 test%=FALSE
 :
 DIM code% &500
@@ -226,6 +226,7 @@ EQUB 0
 \ MOS 1.20 with GoSDC
 EQUS "FSNR 2"+end_sdc$
 EQUS "F2NR 0"+end_sdc$
+EQUS "FSRM 4"+end_sdc$
 EQUS "ROM4 2"+end_sdc$
 EQUS "ROME 1"+end_sdc$ \ = DFS
 EQUB 0
@@ -234,6 +235,8 @@ EQUB 0
 \ MOS 2.00 with GoSDC
 EQUS "FSNR 2"+end_sdc$
 EQUS "F2NR 3"+end_sdc$
+EQUS "FSRM 4"+end_sdc$
+EQUS "F2RM 5"+end_sdc$
 EQUS "ROM4 2"+end_sdc$
 EQUS "ROME 1"+end_sdc$ \ = DFS
 EQUB 0
@@ -243,6 +246,8 @@ EQUB 0
 \ non-Master MOS)
 EQUS "FSNR 4"+end_sdc$
 EQUS "F2NR 5"+end_sdc$
+EQUS "FSRM 4"+end_sdc$
+EQUS "F2RM 5"+end_sdc$
 EQUS "ROM4 2"+end_sdc$
 EQUS "ROME 0"+end_sdc$
 EQUB 0
@@ -252,6 +257,8 @@ EQUB 0
 \ non-Master MOS)
 EQUS "FSNR 6"+end_sdc$
 EQUS "F2NR 7"+end_sdc$
+EQUS "FSRM 4"+end_sdc$
+EQUS "F2RM 5"+end_sdc$
 EQUS "ROM4 2"+end_sdc$
 EQUS "ROME 0"+end_sdc$
 EQUB 0
@@ -270,6 +277,8 @@ EQUB 0
 \ MOS 3.50 with GoSDC DFS+ADFS
 EQUS "FSNR 6"+end_sdc$
 EQUS "F2NR 7"+end_sdc$
+EQUS "FSRM 4"+end_sdc$
+EQUS "F2RM 5"+end_sdc$
 EQUS "ROM4 2"+end_sdc$
 EQUS "UNPLUG 9"+end_os$
 EQUS "UNPLUG &D"+end_os$
