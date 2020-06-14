@@ -4,7 +4,7 @@ AUTO
 REM>SDCSetup
 REM rcf@mince.net
 :
-version$="v1.3"
+version$="v1.4"
 test%=FALSE
 :
 DIM code% &500
@@ -88,7 +88,7 @@ INX
 INY
 LDA setuptable,X
 BMI endsetup
-BEQ endsetups
+BEQ unksetup
 CMP (scratch),Y
 BEQ setupcmp
 .setupnext
@@ -103,14 +103,14 @@ LDY #255
 JMP setupcmp
 :
 \ unknown setup error
-.endsetups
+.unksetup
 LDY #255
-.endsetupsloop
+.unksetuploop
 INY
-LDA endsetupsmsg,Y
+LDA unksetupmsg,Y
 JSR OSASCI
 CMP #13
-BNE endsetupsloop
+BNE unksetuploop
 JMP exit
 :
 .endsetup
@@ -182,28 +182,37 @@ EQUB -1
 EQUW setup_zero
 EQUS "B"
 EQUB -1
-EQUW setup_b
-EQUS "B+"
+EQUW setup_b_swmmxfs
+EQUS "+B-SDC"
 EQUB -1
-EQUW setup_bplus
+EQUW subsetup_b_sdc
+EQUS "+B-MM"
+EQUB -1
+EQUW subsetup_b_swmmfs
+EQUS "+B-OMM"
+EQUB -1
+EQUW subsetup_b_mmfs
+EQUS "+B-ADFS"
+EQUB -1
+EQUW subsetup_b_adfs
 EQUS "M320"
 EQUB -1
 EQUW setup_master320
 EQUS "M"
 EQUB -1
 EQUW setup_master350
-EQUS "M-DISC"
+EQUS "+M-SDC"
 EQUB -1
-EQUW setup_masterdisc
-EQUS "M-SDC"
+EQUW subsetup_master350_sdc
+EQUS "+M-DISC"
 EQUB -1
-EQUW setup_mastersdc
+EQUW subsetup_master350_disc
 EQUS "VERSION"
 EQUB -1
 EQUW setup_version
 EQUB 0
 :
-.endsetupsmsg
+.unksetupmsg
 EQUS "Unknown setup"
 EQUB 13
 :
@@ -218,71 +227,110 @@ EQUB 13
 \ and 2.00 (since no *UNPLUG)
 EQUS "FSNR 0"+end_sdc$
 EQUS "F2NR 0"+end_sdc$
+EQUS "ROM3 0"+end_sdc$ \ = MAMMXFS
 EQUS "ROM4 0"+end_sdc$
+EQUS "ROM5 0"+end_sdc$
+EQUS "ROMC 0"+end_sdc$
 EQUS "ROME 0"+end_sdc$
 EQUB 0
 :
-.setup_b
-\ MOS 1.20 with GoSDC
-EQUS "FSNR 2"+end_sdc$
-EQUS "F2NR 0"+end_sdc$
+.setup_b_swmmxfs
+\ B/B+ with GoSDC+SWMMXFS
+EQUS "FSNR 162"+end_sdc$
+EQUS "F2NR 2"+end_sdc$
 EQUS "FSRM 4"+end_sdc$
-EQUS "ROM4 2"+end_sdc$
+EQUS "F2RM 5"+end_sdc$
+EQUS "ROM3 1"+end_sdc$ \ = MAMMXFS
+EQUS "ROM4 0"+end_sdc$
+EQUS "ROM5 2"+end_sdc$
+EQUS "ROMC 1"+end_sdc$ \ = BE
 EQUS "ROME 1"+end_sdc$ \ = DFS
 EQUB 0
 :
-.setup_bplus
-\ MOS 2.00 with GoSDC
+.subsetup_b_sdc
+\ B/B+ with GoSDC
+\ (switch from Model B)
+EQUS "FSNR 2"+end_sdc$
+EQUS "F2NR 0"+end_sdc$
+EQUS "ROM4 2"+end_sdc$
+EQUS "ROM5 0"+end_sdc$
+EQUB 0
+:
+.subsetup_b_swmmfs
+\ B/B+ with SWMMFS
+\ (switch from Model B)
+EQUS "FSNR 161"+end_sdc$
+EQUS "F2NR 0"+end_sdc$
+EQUS "ROM4 2"+end_sdc$
+EQUS "ROM5 0"+end_sdc$
+EQUB 0
+:
+.subsetup_b_mmfs
+\ B/B+ with MMFS
+\ (switch from Model B)
+EQUS "FSNR 160"+end_sdc$
+EQUS "F2NR 0"+end_sdc$
+EQUS "ROM4 2"+end_sdc$
+EQUS "ROM5 0"+end_sdc$
+EQUB 0
+:
+.subsetup_b_adfs
+\ B/B+ with GoSDC DFS+ADFS
+\ (switch from Model B)
 EQUS "FSNR 2"+end_sdc$
 EQUS "F2NR 3"+end_sdc$
-EQUS "FSRM 4"+end_sdc$
-EQUS "F2RM 5"+end_sdc$
 EQUS "ROM4 2"+end_sdc$
-EQUS "ROME 1"+end_sdc$ \ = DFS
+EQUS "ROM5 0"+end_sdc$
 EQUB 0
 :
 .setup_master320
-\ MOS 3.20 with GoSDC (from
-\ non-Master MOS)
+\ MOS 3.20 with GoSDC
+\ (switch from non-Master MOS)
 EQUS "FSNR 4"+end_sdc$
 EQUS "F2NR 5"+end_sdc$
 EQUS "FSRM 4"+end_sdc$
 EQUS "F2RM 5"+end_sdc$
+EQUS "ROM3 0"+end_sdc$
 EQUS "ROM4 2"+end_sdc$
+EQUS "ROM5 0"+end_sdc$
+EQUS "ROMC 0"+end_sdc$
 EQUS "ROME 0"+end_sdc$
 EQUB 0
 :
 .setup_master350
 \ MOS 3.50 with GoSDC (from
-\ non-Master MOS)
+\ (switch from non-Master MOS)
 EQUS "FSNR 6"+end_sdc$
 EQUS "F2NR 7"+end_sdc$
 EQUS "FSRM 4"+end_sdc$
 EQUS "F2RM 5"+end_sdc$
+EQUS "ROM3 0"+end_sdc$
 EQUS "ROM4 2"+end_sdc$
+EQUS "ROM5 0"+end_sdc$
+EQUS "ROMC 0"+end_sdc$
 EQUS "ROME 0"+end_sdc$
 EQUB 0
 :
-.setup_masterdisc
+.subsetup_master350_sdc
+\ MOS 3.50 with GoSDC DFS+ADFS
+\ (switch from Master)
+EQUS "FSNR 6"+end_sdc$
+EQUS "F2NR 7"+end_sdc$
+EQUS "ROM4 2"+end_sdc$
+EQUS "UNPLUG 9"+end_os$
+EQUS "UNPLUG &D"+end_os$
+EQUS "CONFIGURE FILE 5"+end_os$
+EQUB 0
+:
+.subsetup_master350_disc
 \ MOS 3.50 with disc DFS+ADFS
+\ (switch from Master)
 EQUS "FSNR 0"+end_sdc$
 EQUS "F2NR 0"+end_sdc$
 EQUS "ROM4 0"+end_sdc$
 EQUS "INSERT 9"+end_os$
 EQUS "INSERT &D"+end_os$
 EQUS "CONFIGURE FILE 9"+end_os$
-EQUB 0
-:
-.setup_mastersdc
-\ MOS 3.50 with GoSDC DFS+ADFS
-EQUS "FSNR 6"+end_sdc$
-EQUS "F2NR 7"+end_sdc$
-EQUS "FSRM 4"+end_sdc$
-EQUS "F2RM 5"+end_sdc$
-EQUS "ROM4 2"+end_sdc$
-EQUS "UNPLUG 9"+end_os$
-EQUS "UNPLUG &D"+end_os$
-EQUS "CONFIGURE FILE 5"+end_os$
 EQUB 0
 :
 .setup_version
@@ -309,8 +357,9 @@ REM blank unused bytes between
 REM code and buffer for neatness
 IF oscmdstart>endcode THEN FOR byte%=endcode TO oscmdstart-1:code%?(byte%-target%)=0:NEXT
 :
-PRINT "Assembled at &";~code%;"+";~(O%-code%);" ";~target%;" ";~target%
-IF NOT(test%) THEN END
+size%=O%-code%
+PRINT "Assembled at &";~code%;"+";~size%
+IF NOT(test%) THEN params$=STR$~code%+"+"+STR$~size%+" "+STR$~target%+" "+STR$~target%:PRINT '"*SAVE .... ";params$'"or use OSCLI(""SAVE ... ""+params$)":END
 :
 REM test routine
 DIM setupcmd 256
