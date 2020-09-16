@@ -4,71 +4,159 @@ AUTO
 REM>SDCSetup
 REM rcf@mince.net
 :
-version$="v1.4"
+version$="v2.0"
 test%=FALSE
 :
-DIM code% &500
+DIM code% &600
 IF NOT(test%) THEN target%=&2000 ELSE target%=code%
 :
-REM need 2 bytes in zero page
+REM need 2 bytes in zero page;
+REM we'll restore them on exit
 scratch=&70
 :
 OSASCI=&FFE3
 OSNEWL=&FFE7
 XOSCLI=&FFF7
 :
-REM end_os = misc *command
-REM end_sdc = *SDCCONFIG
-end_os$=CHR$(1)
-end_sdc$=CHR$(2)
+CR=&0D
+CR$=CHR$(CR)
 :
-FOR pass%=4 TO 6 STEP 2
+REM setup options and directives
+CFG_ROM0=&00
+CFG_ROM1=&01
+CFG_ROM2=&02
+CFG_ROM3=&03
+CFG_ROM4=&04
+CFG_ROM5=&05
+CFG_ROM6=&06
+CFG_ROM7=&07
+CFG_ROM8=&08
+CFG_ROM9=&09
+CFG_ROMA=&0A
+CFG_ROMB=&0B
+CFG_ROMC=&0C
+CFG_ROMD=&0D
+CFG_ROME=&0E
+CFG_ROMF=&0F
+CFG_FSNR=&10
+CFG_F2NR=&11
+CFG_FSRM=&12
+CFG_F2RM=&13
+CFG_END=&F0
+CFG_INC=&F1
+:
+REM maximum configuration option
+REM number
+cfgoptsmax=&13
+:
+REM value to indicate option has
+REM not been set - must be
+REM something that no option
+REM will ever use
+CFGVAL_UNSET=&F0
+:
+FOR pass%=0 TO 1
+opt%=4+pass%*2
 P%=target%
 O%=code%
-[ OPT pass%
+:
+[ OPT opt%
 JMP start
-.cmdline
+:
+.params
+\ *SDCTOOL puts address of
+\ parameter string here
 EQUW 0
 :
 .start
-\ preserve scatch on stack
+\ preserve scratch on stack
 LDA scratch
 PHA
 LDA scratch+1
 PHA
-\
-\ store cmd line base at scratch
-LDA cmdline
+:
+\ store params start addr in
+\ scratch
+LDA params
 STA scratch
-LDA cmdline+1
+LDA params+1
 STA scratch+1
+:
+\ check that the address of the
+\ parameters is not &0000, which
+\ implies the program has been
+\ run directly and not with
+\ *SDCTOOL (which would set it)
+ORA params
+BNE checkshowonly
+LDX #nosetupmsg MOD 256
+LDY #nosetupmsg DIV 256
+JSR printstr
+JMP exit
+:
+.checkshowonly
+\ check if first char is "show
+\ only" - if so, record that and
+\ start from the following char
+LDY #0
+\ showonly indicates if in "show
+\ only" mode (=1); initialise to
+\ "run" mode (=0)
+STY showonly
+LDA (scratch),Y
+CMP #ASC("~")
+BNE checkempty
+\ set flag to indicate in "show
+\ only" mode
+INC showonly
+\ move start pointer of params
+\ to next character
+INC scratch+0
+BNE checkempty
+INC scratch+1
+:
+.checkempty
+\ get params first character -
+\ if CR then no params so list
+\ setups
 LDY #0
 LDA (scratch),Y
-CMP #13
-BNE setupcheck
+CMP #CR
+BEQ setuplist
 :
-\ list available setups
-LDX #255
-.listmsgloop
+\ work through setup table to
+\ find match
+:
+\ initialise setup table index
+LDX #&FF
+.setupnext
+\ initialise param char index
+LDY #&FF
+.setupcmp
 INX
-LDA listmsg,X
-JSR OSASCI
-CMP #13
-BNE listmsgloop
-LDX #255
-.listsetupsloop
+INY
+LDA setuptable,X
+\ if 0, this entry finished
+BEQ endsetup
+\ if -ve (-1), end of table
+BMI unksetup
+\ compare against params, loop
+\ if matching
+CMP (scratch),Y
+BEQ setupcmp
+:
+.setupskip
+\ loop until 0 (entry finished)
+\ in setup table
 INX
 LDA setuptable,X
-BMI listnext
-BEQ exit
-JSR OSASCI
-JMP listsetupsloop
-.listnext
-JSR OSNEWL
-\ skip 0 and ptr LSB
+BNE setupskip
+.setupskipptr
+\ skip 0 + ptr LSB (MSB skipped
+\ by loop)
 INX
 INX
-JMP listsetupsloop
+JMP setupnext
 :
 .exit
 \ restore scratch area
@@ -78,293 +166,612 @@ PLA
 STA scratch
 RTS
 :
-\ check setup for match
-.setupcheck
-\ initialise setup table ptr
-LDX #255
-LDY #255
-.setupcmp
-INX
-INY
-LDA setuptable,X
-BMI endsetup
-BEQ unksetup
-CMP (scratch),Y
-BEQ setupcmp
-.setupnext
-INX
-LDA setuptable,X
-BPL setupnext
-.setupskipptr
-\ skip setup 0 + ptr LSB
-INX
-INX
-LDY #255
-JMP setupcmp
+\ list available setups
+.setuplist
+\ print 'available setups'
+LDX #listmsg MOD 256
+LDY #listmsg DIV 256
+JSR printstr
 :
-\ unknown setup error
-.unksetup
-LDY #255
-.unksetuploop
-INY
-LDA unksetupmsg,Y
+\ print table of setups
+LDX #255
+.listsetupsloop
+INX
+LDA setuptable,X
+\ if 0, end of entry
+BEQ listnext
+\ if -ve (-1), end of table
+BMI exit
 JSR OSASCI
-CMP #13
-BNE unksetuploop
+JMP listsetupsloop
+:
+\ go to next entry in table
+.listnext
+JSR OSNEWL
+\ skip 0 and ptr LSB
+INX
+INX
+JMP listsetupsloop
+:
+\ unknown setup name error
+.unksetup
+LDX #unksetupmsg MOD 256
+LDY #unksetupmsg DIV 256
+JSR printstr
 JMP exit
 :
+\ table name ended
 .endsetup
-\ did entered setup also end?
+\ did params also end - if not,
+\ no match so loop to next entry
 LDA (scratch),Y
-CMP #13
+CMP #CR
 BNE setupskipptr
 :
-\ matched setup - get commands
+\ params and table entry match
+:
+\ initialise config options
+LDA #CFGVAL_UNSET \ = no change
+LDY #cfgoptsmax+1
+.cfgoptsclrloop
+DEY
+STA cfgoptsbuff,Y
+BNE cfgoptsclrloop
+:
+\ store address of setup
+\ commands in scratch
 LDA setuptable+1,X
 STA scratch
 LDA setuptable+2,X
 STA scratch+1
+JSR setupproc
+JMP setupdone
 :
-.runcopy
-LDY #255
-.runcopyloop
+\ loop processing setup config
+\ options or directives
+.setupproc
+LDY #&FF
+.setupprocloop
 INY
+\ first byte is option or
+\ directive
 LDA (scratch),Y
-\ 0 = end of commands
-BEQ exit
-STA oscmdbuff,Y
-\ <32 = end of line
-CMP #32
-BPL runcopyloop
-\ terminating character in X
-TAX
-\ overwrite with CR
-LDA #13
-STA oscmdbuff,Y
-TYA
-\ move ptr to next command
-SEC \ saves another INY
-ADC scratch
-STA scratch
-BCC runos
-INC scratch+1
+\ if configuration option...
+CMP #cfgoptsmax+1
+BCC cfgopt
+\ if end...
+CMP #CFG_END
+BEQ setupend
+\ if include...
+CMP #CFG_INC
+BEQ setupinc
+\ otherwise is *command...
 :
-.runos
-\ end character also indicates
-\ type of command - other *misc
-\ or *SDCCONFIG
-CPX #ASC(end_sdc$)
-BEQ runsdccmd
-LDY #oscmdbuff-oscmdstart-1 AND &FF
-LDX #oscmdbuff MOD 256
-JMP runcmd
-.runsdccmd
-LDY #255
-LDX #oscmdstart MOD 256
-.runcmd
+\ print asterisk
 LDA #ASC("*")
 JSR OSASCI
-.runprintloop
+\ loop, storing commands in
+\ buffer and printing
+DEY
+LDX #&FF
+.cfgosloop
+INX
 INY
-LDA oscmdstart,Y
+LDA (scratch),Y
+STA oscmdbuff,X
 JSR OSASCI
-CMP #13
-BNE runprintloop
-LDY #oscmdstart DIV 256
+CMP #CR
+BNE cfgosloop
+\ store end of command
+TYA
+PHA
+\ execute command
+LDX #oscmdbuff MOD 256
+LDY #oscmdbuff DIV 256
+\ if in "show only" mode (=1),
+\ skip OSCLI
+LDA showonly
+BNE skiposcmd
 JSR XOSCLI
-JMP runcopy
-.runend
-JMP exit
+.skiposcmd
+\ restore end of command
+PLA
+TAY
+JMP setupprocloop
 :
-.setuptable
-EQUS "ZERO"
-EQUB -1
-EQUW setup_zero
-EQUS "B"
-EQUB -1
-EQUW setup_b_swmmxfs
-EQUS "+B-SDC"
-EQUB -1
-EQUW subsetup_b_sdc
-EQUS "+B-MM"
-EQUB -1
-EQUW subsetup_b_swmmfs
-EQUS "+B-OMM"
-EQUB -1
-EQUW subsetup_b_mmfs
-EQUS "+B-ADFS"
-EQUB -1
-EQUW subsetup_b_adfs
-EQUS "M320"
-EQUB -1
-EQUW setup_master320
-EQUS "M"
-EQUB -1
-EQUW setup_master350
-EQUS "+M-SDC"
-EQUB -1
-EQUW subsetup_master350_sdc
-EQUS "+M-DISC"
-EQUB -1
-EQUW subsetup_master350_disc
-EQUS "VERSION"
-EQUB -1
-EQUW setup_version
-EQUB 0
+\ configuration end option -
+\ return to either 'done' or
+\ including configuration
+.setupend
+RTS
+:
+\ configuration option number
+.cfgopt
+TAX
+INY
+LDA (scratch),Y
+STA cfgoptsbuff,X
+JMP setupprocloop
+:
+\ include another setup
+.setupinc
+\ push current setup addr
+LDA scratch
+PHA
+LDA scratch+1
+PHA
+\ store recursed-into setup addr
+\ to scratch
+INY
+LDA (scratch),Y
+TAX
+INY
+LDA (scratch),Y
+STA scratch+1
+STX scratch
+\ push index in current setup
+TYA
+PHA
+\ recurse into included setup
+JSR setupproc
+\ restore setup index and addr
+PLA
+TAY
+PLA
+STA scratch+1
+PLA
+STA scratch
+JMP setupprocloop
+:
+\ setup processing all done - we
+\ now need to set the specified
+\ configuration options
+.setupdone
+LDY #0
+.cfgprocloop
+LDA cfgoptsbuff,Y
+\ move onto next option - we do
+\ this here so we can step back
+\ along the bytes of the config
+\ option string table
+INY
+\ skip configuration options
+\ which haven't been set
+CMP #CFGVAL_UNSET
+BEQ cfgprocnext
+:
+\ push the next option number
+TYA
+PHA
+\ multiply the option number by
+\ 4 to get the offset of the
+\ start of the next option (so
+\ we can work back along this
+\ one)
+ASL A
+ASL A
+TAY
+\ copy the 4 bytes of the option
+\ string into the command buffer
+LDX #3
+.sdcconfigcpyloop
+DEY
+LDA sdcconfigtbl,Y
+STA oscmdbuff,X
+DEX
+BPL sdcconfigcpyloop
+\ add a space
+LDA #ASC(" ")
+STA oscmdbuff+4
+\ pull the next option number
+PLA
+TAY
+:
+\ get the value for this option
+\ (since the offset base is -1)
+\ and store on stack
+LDA cfgoptsbuff-1,Y
+PHA
+\ convert option value to BCD in
+\ scratch+0/1 (we don't need to
+\ use zero page but might as
+\ well, as we don't need the
+\ parameters address any more)
+LDA #0
+STA scratch+0
+STA scratch+1
+\ loop through 8 bits in byte
+LDX #8
+\ switch to BCD mode
+SED
+.bin2bcdloop
+\ get option byte and shift top
+\ bit into carry and store again
+PLA
+ASL A
+PHA
+\ double each byte in the output
+\ and add in carry as a unit, if
+\ set
+LDA scratch+0
+ADC scratch+0
+STA scratch+0
+LDA scratch+1
+ADC scratch+1
+STA scratch+1
+DEX
+BNE bin2bcdloop
+\ switch out of BCD mode
+CLD
+\ drop option value from stack
+PLA
+\ BCD encoded version of byte
+\ now in scratch+0/1
+:
+\ X = offset into output string;
+\ we also uses this to see if
+\ we've printed anything and
+\ know if we're in leading zeros
+LDX #0
+\ 100s digit in scratch+1 lower
+\ nibble (upper nibble must be
+\ zero)
+LDA scratch+1
+\ if zero, skip as leading zero
+BEQ bcdskip100s
+\ convert to ASCII and store (as
+\ this is BCD, we know number
+\ must be 0-9 and not A-F)
+ORA #ASC("0")
+STA oscmdbuff+5,X
+INX
+.bcdskip100s
+\ 10s digit in scratch+0 upper
+\ nibble
+LDA scratch+0
+LSR A
+LSR A
+LSR A
+LSR A
+\ if not zero, we print
+BNE bcdprint10s
+\ we skip zero at 10s only if we
+\ had a zero at 100s
+CPX #0
+BEQ bcdskip10s
+.bcdprint10s
+ORA #ASC("0")
+STA oscmdbuff+5,X
+INX
+.bcdskip10s
+\ 1s digit in scratch+0 lower
+\ nibble
+LDA scratch+0
+AND #&0F
+ORA #ASC("0")
+STA oscmdbuff+5,X
+INX
+\ end with carriage return
+LDA #CR
+STA oscmdbuff+5,X
+\ print *SDCCONFIG command
+LDA #ASC("*")
+JSR OSASCI
+\ save next option number in A
+TYA
+LDX #sdccmdbuff MOD 256
+LDY #sdccmdbuff DIV 256
+JSR printstr
+\ if in "show only" mode, skip
+\ OSCLI
+PHA
+LDA showonly
+BNE skipsdccmd
+JSR XOSCLI
+.skipsdccmd
+PLA
+\ retrieve next option number
+TAY
+.cfgprocnext
+CPY #cfgoptsmax+1
+BNE cfgprocloopjmp
+JMP exit
+\ use this as distance is >BRA
+.cfgprocloopjmp
+JMP cfgprocloop
+:
+\ print string pointed to by YX
+\ (X=LSB, Y=MSB), CR terminated;
+\ AXY preserved
+.printstr
+PHA
+STX scratch+0
+STY scratch+1
+.printstrloop
+LDA (scratch+0)
+JSR OSASCI
+CMP #CR
+BEQ printstrend
+INC scratch+0
+BNE printstrloop
+INC scratch+1
+JMP printstrloop
+:
+.printstrend
+PLA
+RTS
+:
+.nosetupmsg
+EQUS "No parameters - run with *SDCTOOL"
+EQUB CR
 :
 .unksetupmsg
 EQUS "Unknown setup"
-EQUB 13
+EQUB CR
 :
 .listmsg
-EQUS "Available setups:"
-EQUB 13
+EQUS "Available setups (~ prefix = test):"
+EQUB CR
 :
-\ setup command sets
+\ table of setup option codes
+\ (base+opt*4 = code)
+.sdcconfigtbl
+EQUS "ROM0"
+EQUS "ROM1"
+EQUS "ROM2"
+EQUS "ROM3"
+EQUS "ROM4"
+EQUS "ROM5"
+EQUS "ROM6"
+EQUS "ROM7"
+EQUS "ROM8"
+EQUS "ROM9"
+EQUS "ROMA"
+EQUS "ROMB"
+EQUS "ROMC"
+EQUS "ROMD"
+EQUS "ROME"
+EQUS "ROMF"
+EQUS "FSNR"
+EQUS "F2NR"
+EQUS "FSRM"
+EQUS "F2RM"
+:
+\ --- SETUP table ---
+:
+\ below are setups for my BBC
+\ Master, which has a
+\ RetroClinic MOS selector,
+\ between MOS 1.20 (B), 2.00
+\ (B+), 3.20 (Master) and 3.50
+\ (final Master release)
+\
+\ the RetroClinic MOS ROM for
+\ the B/B+ has various
+\ additional ROMs for the
+\ platform (e.g. The BASIC
+\ Editor in bank &C for 1.20)
+\
+\ in addition, I have two
+\ cartridges in the Master slots
+\ giving banks 0+3, arranged as
+\ follows:
+\ 0 = EXMON II
+\ 1 = MAMMXFS (MMFS Master xFS)
+\ 2 = The BASIC Editor
+\ 3 = The HIBASIC Editor
+:
+\ names are 0-byte terminated
+\ and followed by address of
+\ setup configuration (below);
+\ end of table marked with -1
+\ (&FF)
+:
+.setuptable
+:
+EQUS "ZERO"
+EQUB 0
+EQUW setup_zero
+:
+EQUS "B"
+EQUB 0
+EQUW setup_b_swmmxfs
+:
+EQUS "B-SDC"
+EQUB 0
+EQUW setup_b_sdc
+:
+EQUS "B-MM"
+EQUB 0
+EQUW setup_b_swmmfs
+:
+EQUS "B-OMM"
+EQUB 0
+EQUW setup_b_mmfs
+:
+EQUS "B-ADFS"
+EQUB 0
+EQUW setup_b_adfs
+:
+EQUS "M320"
+EQUB 0
+EQUW setup_master320
+:
+EQUS "M"
+EQUB 0
+EQUW setup_master350
+:
+EQUS "+M-SDC"
+EQUB 0
+EQUW subsetup_master350_sdc
+:
+EQUS "+M-DISC"
+EQUB 0
+EQUW subsetup_master350_disc
+:
+EQUS "VERSION"
+EQUB 0
+EQUW setup_version
+:
+EQUB -1 \ end of table
+:
+\ --- SETUP configurations ---
+:
 .setup_zero
 \ resets settings we change
 \ also enables DFS on MOS 1.20
 \ and 2.00 (since no *UNPLUG)
-EQUS "FSNR 0"+end_sdc$
-EQUS "F2NR 0"+end_sdc$
-EQUS "ROM3 0"+end_sdc$ \ = MAMMXFS
-EQUS "ROM4 0"+end_sdc$
-EQUS "ROM5 0"+end_sdc$
-EQUS "ROMC 0"+end_sdc$
-EQUS "ROME 0"+end_sdc$
-EQUB 0
+EQUB CFG_FSNR:EQUB 0
+EQUB CFG_F2NR:EQUB 0
+\ set GoSDC ROM banks to 4+5 as
+\ we always use these and they
+\ have no effect unless FSs are
+\ specified; also set them to
+\ 'enabled'
+EQUB CFG_FSRM:EQUB 4
+EQUB CFG_F2RM:EQUB 5
+EQUB CFG_ROM4:EQUB 0
+EQUB CFG_ROM5:EQUB 0
+\ these are other ROMs we fiddle
+\ with the status of, in various
+\ setups
+EQUB CFG_ROMC:EQUB 0
+EQUB CFG_ROME:EQUB 0
+\ Master cartridge slots
+EQUB CFG_ROM1:EQUB 0
+EQUB CFG_END
+:
+.setup_b
+\ B/B+ with GoSDC DFS
+EQUB CFG_INC:EQUW setup_zero
+EQUB CFG_FSNR:EQUB 2 \ GoSDC 1.20/2.00 DFS
+EQUB CFG_ROM4:EQUB 2 \ GoSDC DFS reinsert
+EQUB CFG_ROME:EQUB 1 \ ROM DFS
+EQUB CFG_ROMC:EQUB 1 \ ROM BE
+EQUB CFG_ROM1:EQUB 1 \ Cart MAMMXFS
+EQUB CFG_END
+:
+.setup_b_sdc
+\ B/B+ with GoSDC DFS
+\ (+ disable F2RM in case old
+\ ROM remains)
+EQUB CFG_INC:EQUW setup_b
+EQUB CFG_ROM5:EQUB 1 \ SDC ?
+EQUB CFG_END
 :
 .setup_b_swmmxfs
-\ B/B+ with GoSDC+SWMMXFS
-EQUS "FSNR 162"+end_sdc$
-EQUS "F2NR 2"+end_sdc$
-EQUS "FSRM 4"+end_sdc$
-EQUS "F2RM 5"+end_sdc$
-EQUS "ROM3 1"+end_sdc$ \ = MAMMXFS
-EQUS "ROM4 0"+end_sdc$
-EQUS "ROM5 2"+end_sdc$
-EQUS "ROMC 1"+end_sdc$ \ = BE
-EQUS "ROME 1"+end_sdc$ \ = DFS
-EQUB 0
+\ B/B+ with GoSDC DFS+SWMMXFS
+EQUB CFG_INC:EQUW setup_b
+EQUB CFG_F2NR:EQUB 162 \ SWMMXFS
+EQUB CFG_END
 :
-.subsetup_b_sdc
-\ B/B+ with GoSDC
-\ (switch from Model B)
-EQUS "FSNR 2"+end_sdc$
-EQUS "F2NR 0"+end_sdc$
-EQUS "ROM4 2"+end_sdc$
-EQUS "ROM5 0"+end_sdc$
-EQUB 0
-:
-.subsetup_b_swmmfs
+.setup_b_swmmfs
 \ B/B+ with SWMMFS
-\ (switch from Model B)
-EQUS "FSNR 161"+end_sdc$
-EQUS "F2NR 0"+end_sdc$
-EQUS "ROM4 2"+end_sdc$
-EQUS "ROM5 0"+end_sdc$
-EQUB 0
+\ (+ disable F2RM in case old
+\ ROM remains)
+EQUB CFG_INC:EQUW setup_b
+EQUB CFG_FSNR:EQUB 161 \ SWMMFS
+EQUB CFG_ROM5:EQUB 1   \ SDC ?
+EQUB CFG_END
 :
-.subsetup_b_mmfs
+.setup_b_mmfs
 \ B/B+ with MMFS
-\ (switch from Model B)
-EQUS "FSNR 160"+end_sdc$
-EQUS "F2NR 0"+end_sdc$
-EQUS "ROM4 2"+end_sdc$
-EQUS "ROM5 0"+end_sdc$
-EQUB 0
+\ (+ disable F2RM in case old
+\ ROM remains)
+EQUB CFG_INC:EQUW setup_b
+EQUB CFG_FSNR:EQUB 160 \ MMFS
+EQUB CFG_ROM5:EQUB 1   \ SDC ?
+EQUB CFG_END
 :
-.subsetup_b_adfs
+.setup_b_adfs
 \ B/B+ with GoSDC DFS+ADFS
-\ (switch from Model B)
-EQUS "FSNR 2"+end_sdc$
-EQUS "F2NR 3"+end_sdc$
-EQUS "ROM4 2"+end_sdc$
-EQUS "ROM5 0"+end_sdc$
-EQUB 0
+EQUB CFG_INC:EQUW setup_b
+EQUB CFG_F2NR:EQUB 3 \ SDC 1.20/2.00 ADFS
+EQUB CFG_END
 :
 .setup_master320
 \ MOS 3.20 with GoSDC
-\ (switch from non-Master MOS)
-EQUS "FSNR 4"+end_sdc$
-EQUS "F2NR 5"+end_sdc$
-EQUS "FSRM 4"+end_sdc$
-EQUS "F2RM 5"+end_sdc$
-EQUS "ROM3 0"+end_sdc$
-EQUS "ROM4 2"+end_sdc$
-EQUS "ROM5 0"+end_sdc$
-EQUS "ROMC 0"+end_sdc$
-EQUS "ROME 0"+end_sdc$
-EQUB 0
+EQUB CFG_INC:EQUW setup_zero
+EQUB CFG_FSNR:EQUB 4 \ SDC 3.20 DFS
+EQUB CFG_F2NR:EQUB 5 \ SDC 3.20 ADFS
+EQUB CFG_ROM4:EQUB 2 \ SDC DFS reinsert
+EQUB CFG_END
 :
 .setup_master350
-\ MOS 3.50 with GoSDC (from
-\ (switch from non-Master MOS)
-EQUS "FSNR 6"+end_sdc$
-EQUS "F2NR 7"+end_sdc$
-EQUS "FSRM 4"+end_sdc$
-EQUS "F2RM 5"+end_sdc$
-EQUS "ROM3 0"+end_sdc$
-EQUS "ROM4 2"+end_sdc$
-EQUS "ROM5 0"+end_sdc$
-EQUS "ROMC 0"+end_sdc$
-EQUS "ROME 0"+end_sdc$
-EQUB 0
+\ MOS 3.50 with GoSDC
+EQUB CFG_INC:EQUW setup_zero
+EQUB CFG_FSNR:EQUB 6 \ SDC 3.50 DFS
+EQUB CFG_F2NR:EQUB 7 \ SDC 3.50 ADFS
+EQUB CFG_ROM4:EQUB 2 \ SDC DFS reinsert
+EQUB CFG_END
 :
 .subsetup_master350_sdc
 \ MOS 3.50 with GoSDC DFS+ADFS
 \ (switch from Master)
-EQUS "FSNR 6"+end_sdc$
-EQUS "F2NR 7"+end_sdc$
-EQUS "ROM4 2"+end_sdc$
-EQUS "UNPLUG 9"+end_os$
-EQUS "UNPLUG &D"+end_os$
-EQUS "CONFIGURE FILE 5"+end_os$
-EQUB 0
+EQUB CFG_INC:EQUW setup_master350
+EQUS "UNPLUG &9"+CR$ \ ROM DFS
+EQUS "UNPLUG &D"+CR$ \ ROM ADFS
+EQUS "CONFIGURE FILE &5"+CR$ \ SDC DFS
+EQUB CFG_END
 :
 .subsetup_master350_disc
 \ MOS 3.50 with disc DFS+ADFS
 \ (switch from Master)
-EQUS "FSNR 0"+end_sdc$
-EQUS "F2NR 0"+end_sdc$
-EQUS "ROM4 0"+end_sdc$
-EQUS "INSERT 9"+end_os$
-EQUS "INSERT &D"+end_os$
-EQUS "CONFIGURE FILE 9"+end_os$
-EQUB 0
+EQUB CFG_INC:EQUW setup_zero
+EQUS "INSERT &9"+CR$ \ ROM DFS
+EQUS "INSERT &D"+CR$ \ ROM ADFS
+EQUS "CONFIGURE FILE &9"+CR$ \ ROM DFS
+EQUB CFG_END
 :
 .setup_version
 \ version number as a comment
-EQUS "| "+version$+end_os$
-EQUB 0
-.endcode
+EQUS "| "+version$+CR$
+EQUB CFG_END
+:
+\ "SDCCONFIG" command prefix; is
+\ placed before *command buffer
+\ so commands can be written
+\ there are suffixed to this,
+\ when OSCLI is called
+.sdccmdbuff
+EQUS "SDCCONFIG "
+:
+.end
+\ this is the end of the code
+\ that must be saved to disc
+\ (everything following is just
+\ reserving memory)
 ]
 :
-REM align command buffer to page
-REM simplifies code and we don't
-REM mind wasting bytes
-oldP%=P%
-P%=(P%+&FF) AND &FF00
-O%=O%+P%-oldP%
-[ OPT pass%
-.oscmdstart
-EQUS "SDCCONFIG "
-.oscmdbuff
+REM reserve space for *command
+REM buffer
+oscmdbuff=P%
+P%=P%+256
+O%=O%+256
+:
+REM reserve space for config
+REM options
+cfgoptsbuff=P%
+P%=P%+cfgoptsmax+1
+O%=O%+cfgoptsmax+1
+:
+[ OPT opt%
+.showonly
+\ set to 1 if in "show only"
+\ mode
+EQUB 0
 ]
+:
 NEXT
 :
-REM blank unused bytes between
-REM code and buffer for neatness
-IF oscmdstart>endcode THEN FOR byte%=endcode TO oscmdstart-1:code%?(byte%-target%)=0:NEXT
-:
-size%=O%-code%
-PRINT "Assembled at &";~code%;"+";~size%
-IF NOT(test%) THEN params$=STR$~code%+"+"+STR$~size%+" "+STR$~target%+" "+STR$~target%:PRINT '"*SAVE .... ";params$'"or use OSCLI(""SAVE ... ""+params$)":END
+size%=end-target%
+PRINT "Assembled at &";~code%;"+";~size%;"(+";~(P%-end);")"
+IF NOT(test%) THEN params$=STR$~code%+"+"+STR$~size%+" "+STR$~(target% OR &FFFF0000)+" "+STR$~(target% OR &FFFF0000):PRINT '"*SAVE .... ";params$'"or use OSCLI(""SAVE ... ""+params$)":END
 :
 REM test routine
 DIM setupcmd 256
-cmdline?0=setupcmd MOD 256
-cmdline?1=setupcmd DIV 256
+params?0=setupcmd MOD 256
+params?1=setupcmd DIV 256
 REPEAT
 INPUT "=>*SDCTOOL SETUP ";setup$
 IF LEFT$(setup$,1)="*" THEN OSCLI MID$(setup$,2) ELSE $setupcmd=setup$:CALL code%
