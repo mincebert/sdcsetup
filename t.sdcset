@@ -1,10 +1,10 @@
 *BASIC
 NEW
 AUTO
-REM>SDCSetup
+REM>$.Develop.GoSDCTools.SDCSetup
 REM rcf@mince.net
 :
-version$="v2.0"
+version$="v2.1"
 test%=FALSE
 :
 DIM code% &600
@@ -16,7 +16,12 @@ scratch=&70
 :
 OSASCI=&FFE3
 OSNEWL=&FFE7
+OSBYTE=&FFF4
 XOSCLI=&FFF7
+:
+ROMSEL_BBC=&FE30
+ROMSEL_ELK=&FE05
+ROMSELCPY=&F4
 :
 CR=&0D
 CR$=CHR$(CR)
@@ -55,6 +60,11 @@ REM something that no option
 REM will ever use
 CFGVAL_UNSET=&F0
 :
+REM value for ROMn options to
+REM indicate it should be wiped
+REM and ROMn reset to 0
+CFGVAL_WIPE=&F1
+:
 FOR pass%=0 TO 1
 opt%=4+pass%*2
 P%=target%
@@ -69,6 +79,17 @@ JMP start
 EQUW 0
 :
 .start
+\ find out if we're running on
+\ an Electron and set flag if so
+LDA #0
+LDX #1
+JSR OSBYTE
+CPX #0
+BNE savestack
+LDA #1
+STA iselk
+:
+.savestack
 \ preserve scratch on stack
 LDA scratch
 PHA
@@ -323,60 +344,67 @@ PLA
 STA scratch
 JMP setupprocloop
 :
-\ setup processing all done - we
-\ now need to set the specified
-\ configuration options
 .setupdone
-LDY #0
+\ setup processing all done
+:
+\ set the specified
+\ configuration options
+LDY #&FF
 .cfgprocloop
-LDA cfgoptsbuff,Y
-\ move onto next option - we do
-\ this here so we can step back
-\ along the bytes of the config
-\ option string table
 INY
+LDA cfgoptsbuff,Y
 \ skip configuration options
 \ which haven't been set
 CMP #CFGVAL_UNSET
 BEQ cfgprocnext
+\ if this is a ROM option -
+\ check if ROM is to be cleared
+CMP #CFGVAL_WIPE
+BNE cfgprocopt
+CPY #CFG_ROMF+1
+BPL cfgprocopt
+JMP wipe
 :
-\ push the next option number
+.cfgprocnext
+CPY #cfgoptsmax
+BNE cfgprocloop
+JMP exit
+:
+.cfgprocopt
+\ push the option number
 TYA
 PHA
 \ multiply the option number by
 \ 4 to get the offset of the
-\ start of the next option (so
-\ we can work back along this
-\ one)
+\ start of the option text
 ASL A
 ASL A
 TAY
 \ copy the 4 bytes of the option
 \ string into the command buffer
-LDX #3
+LDX #&100-4
 .sdcconfigcpyloop
-DEY
 LDA sdcconfigtbl,Y
-STA oscmdbuff,X
-DEX
-BPL sdcconfigcpyloop
+STA oscmdbuff-&100+4,X
+INY
+INX
+BNE sdcconfigcpyloop
 \ add a space
 LDA #ASC(" ")
 STA oscmdbuff+4
-\ pull the next option number
+\ restore the option number to Y
 PLA
 TAY
 :
 \ get the value for this option
-\ (since the offset base is -1)
 \ and store on stack
-LDA cfgoptsbuff-1,Y
+LDA cfgoptsbuff,Y
 PHA
 \ convert option value to BCD in
 \ scratch+0/1 (we don't need to
 \ use zero page but might as
 \ well, as we don't need the
-\ parameters address any more)
+\ parameter's address any more)
 LDA #0
 STA scratch+0
 STA scratch+1
@@ -469,26 +497,84 @@ LDA showonly
 BNE skipsdccmd
 JSR XOSCLI
 .skipsdccmd
+\ retrieve option number
 PLA
-\ retrieve next option number
 TAY
-.cfgprocnext
-CPY #cfgoptsmax+1
-BNE cfgprocloopjmp
-JMP exit
-\ use this as distance is >BRA
-.cfgprocloopjmp
-JMP cfgprocloop
+JMP cfgprocnext
+:
+\ wipe ROM slot and set
+\ corresponding SDCCONFIG option
+\ to 0
+.wipe
+TYA
+LDX #wipemsg MOD 256
+LDY #wipemsg DIV 256
+JSR printstr
+TAY
+LDA showonly
+BNE wipeskip
+\ save the current ROM on the
+\ stack
+LDA ROMSELCPY
+PHA
+\ page in ROM Y
+JSR romsel
+\ blank &8000-80FF
+LDA #0
+LDX #0
+.wipeloop
+STA &8000,X
+INX
+BNE wipeloop
+\ page back in the original ROM,
+\ restoring Y
+TYA
+TAX
+PLA
+TAY
+TXA
+JSR romsel
+TAY
+.wipeskip
+\ now do *SDCCONFIG ROMn 0
+LDA #0
+STA cfgoptsbuff,Y
+JMP cfgprocopt
+:
+\ select paged ROM specifed by
+\ Y; X is overwritten; AY is
+\ preserved
+.romsel
+\ what we do differs between
+\ Electron and BBC
+LDX iselk
+BNE romselelk
+\ the BBC select page directly
+STY ROMSELCPY
+STY ROMSEL_BBC
+RTS
+.romselelk
+\ electron must first page in
+\ &C-F, then the desired page
+LDX #&C
+STX ROMSELCPY
+STX ROMSEL_ELK
+STY ROMSELCPY
+STY ROMSEL_ELK
+RTS
 :
 \ print string pointed to by YX
-\ (X=LSB, Y=MSB), CR terminated;
-\ AXY preserved
+\ (X=LSB, Y=MSB), 0 or CR
+\ terminated (0 not printed, CR
+\ printed); AXY preserved
 .printstr
 PHA
 STX scratch+0
 STY scratch+1
 .printstrloop
 LDA (scratch+0)
+CMP #0
+BEQ printstrend
 JSR OSASCI
 CMP #CR
 BEQ printstrend
@@ -502,16 +588,17 @@ PLA
 RTS
 :
 .nosetupmsg
-EQUS "No parameters - run with *SDCTOOL"
-EQUB CR
+EQUS "No parameters - run with *SDCTOOL"+CR$
 :
 .unksetupmsg
-EQUS "Unknown setup"
-EQUB CR
+EQUS "Unknown setup"+CR$
 :
 .listmsg
-EQUS "Available setups (~ prefix = test):"
-EQUB CR
+EQUS "Available setups (~ prefix = test):"+CR$
+:
+.wipemsg
+EQUS "SRWIPE + "
+EQUB 0
 :
 \ table of setup option codes
 \ (base+opt*4 = code)
@@ -581,11 +668,11 @@ EQUS "B-SDC"
 EQUB 0
 EQUW setup_b_sdc
 :
-EQUS "B-MM"
+EQUS "B-MMFS"
 EQUB 0
 EQUW setup_b_swmmfs
 :
-EQUS "B-OMM"
+EQUS "B-OMMFS"
 EQUB 0
 EQUW setup_b_mmfs
 :
@@ -656,7 +743,7 @@ EQUB CFG_END
 \ (+ disable F2RM in case old
 \ ROM remains)
 EQUB CFG_INC:EQUW setup_b
-EQUB CFG_ROM5:EQUB 1 \ SDC ?
+EQUB CFG_ROM5:EQUB CFGVAL_WIPE
 EQUB CFG_END
 :
 .setup_b_swmmxfs
@@ -671,7 +758,7 @@ EQUB CFG_END
 \ ROM remains)
 EQUB CFG_INC:EQUW setup_b
 EQUB CFG_FSNR:EQUB 161 \ SWMMFS
-EQUB CFG_ROM5:EQUB 1   \ SDC ?
+EQUB CFG_ROM5:EQUB CFGVAL_WIPE
 EQUB CFG_END
 :
 .setup_b_mmfs
@@ -680,7 +767,7 @@ EQUB CFG_END
 \ ROM remains)
 EQUB CFG_INC:EQUW setup_b
 EQUB CFG_FSNR:EQUB 160 \ MMFS
-EQUB CFG_ROM5:EQUB 1   \ SDC ?
+EQUB CFG_ROM5:EQUB CFGVAL_WIPE
 EQUB CFG_END
 :
 .setup_b_adfs
@@ -757,8 +844,13 @@ O%=O%+cfgoptsmax+1
 :
 [ OPT opt%
 .showonly
-\ set to 1 if in "show only"
+\ set to <>0 if in "show only"
 \ mode
+EQUB 0
+:
+.iselk
+\ set to <>0 if running on
+\ Electron (set during startup)
 EQUB 0
 ]
 :

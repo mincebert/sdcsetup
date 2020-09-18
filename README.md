@@ -106,6 +106,10 @@ to `EQUS`, terminated by a carriage return (which is stored in the variable
 
     EQUS "UNPLUG 9"+CR$
 
+For `CFG_ROMx` options, you can use the special value of `EQUB CFGVAL_WIPE`
+which will erase the first 256 bytes of that paged RAM bank (effectively
+blanking the bank) and set *SDCCONFIG ROMx to value 0.
+
 The `SDCCONFIG` options are all set at the end of processing a setup's
 actions, but OS commands are run as they are encountered.  If the same
 `SDCCONFIG` setting is changed in multiple places, the last one processed
@@ -157,4 +161,4 @@ You can then run the tool with:
 
 This will run the commands for _setup_ - displaying them first and then
 executing them.  If you omit the final parameter, the available setups will be
-listed.
+listed.  Note that _setup_ is case sensitive.
