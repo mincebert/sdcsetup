@@ -4,7 +4,7 @@ AUTO
 REM>$.Develop.GoSDCTools.SDCSetup
 REM rcf@mince.net
 :
-version$="v2.1"
+version$="v2.11"
 test%=FALSE
 :
 DIM code% &600
@@ -717,8 +717,8 @@ EQUB CFG_F2NR:EQUB 0
 \ 'enabled'
 EQUB CFG_FSRM:EQUB 4
 EQUB CFG_F2RM:EQUB 5
-EQUB CFG_ROM4:EQUB 0
-EQUB CFG_ROM5:EQUB 0
+EQUB CFG_ROM4:EQUB CFGVAL_WIPE
+EQUB CFG_ROM5:EQUB CFGVAL_WIPE
 \ these are other ROMs we fiddle
 \ with the status of, in various
 \ setups
