@@ -4,7 +4,7 @@ AUTO
 REM>$.Develop.GoSDCTools.SDCSetup
 REM rcf@mince.net
 :
-version$="v2.11"
+version$="v2.2"
 test%=FALSE
 :
 DIM code% &600
@@ -110,10 +110,10 @@ STA scratch+1
 \ *SDCTOOL (which would set it)
 ORA params
 BNE checkshowonly
-LDX #nosetupmsg MOD 256
-LDY #nosetupmsg DIV 256
-JSR printstr
-JMP exit
+BRK
+EQUB 254
+EQUS "No parameters - run with *SDCTOOL"
+BRK
 :
 .checkshowonly
 \ check if first char is "show
@@ -216,10 +216,10 @@ JMP listsetupsloop
 :
 \ unknown setup name error
 .unksetup
-LDX #unksetupmsg MOD 256
-LDY #unksetupmsg DIV 256
-JSR printstr
-JMP exit
+BRK
+EQUB 254
+EQUS "Unknown setup"
+BRK
 :
 \ table name ended
 .endsetup
@@ -587,12 +587,6 @@ JMP printstrloop
 PLA
 RTS
 :
-.nosetupmsg
-EQUS "No parameters - run with *SDCTOOL"+CR$
-:
-.unksetupmsg
-EQUS "Unknown setup"+CR$
-:
 .listmsg
 EQUS "Available setups (~ prefix = test):"+CR$
 :
@@ -861,6 +855,7 @@ PRINT "Assembled at &";~code%;"+";~size%;"(+";~(P%-end);")"
 IF NOT(test%) THEN params$=STR$~code%+"+"+STR$~size%+" "+STR$~(target% OR &FFFF0000)+" "+STR$~(target% OR &FFFF0000):PRINT '"*SAVE .... ";params$'"or use OSCLI(""SAVE ... ""+params$)":END
 :
 REM test routine
+ON ERROR IF ERR=254 THEN REPORT:PRINT ELSE REPORT:PRINT " at line ";ERL:END
 DIM setupcmd 256
 params?0=setupcmd MOD 256
 params?1=setupcmd DIV 256
