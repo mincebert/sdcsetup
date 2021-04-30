@@ -4,7 +4,7 @@ AUTO
 REM>$.Develop.GoSDCTools.SDCSetup
 REM rcf@mince.net
 :
-version$="v2.3"
+version$="v2.4"
 test%=FALSE
 :
 DIM code% &600
@@ -18,6 +18,7 @@ OSASCI=&FFE3
 OSNEWL=&FFE7
 OSBYTE=&FFF4
 XOSCLI=&FFF7
+SYSRESET=&FFFC
 :
 ROMSEL_BBC=&FE30
 ROMSEL_ELK=&FE05
@@ -47,12 +48,14 @@ CFG_FSNR=&10
 CFG_F2NR=&11
 CFG_FSRM=&12
 CFG_F2RM=&13
+CFG_RESET=&14
 CFG_END=&F0
 CFG_INC=&F1
 :
 REM maximum configuration option
-REM number
-cfgoptsmax=&13
+REM number (that is not a
+REM directive)
+CFGMAX=CFG_RESET
 :
 REM value to indicate option has
 REM not been set - must be
@@ -233,7 +236,7 @@ BNE setupskipptr
 :
 \ initialise config options
 LDA #CFGVAL_UNSET \ = no change
-LDY #cfgoptsmax+1
+LDY #CFGMAX+1
 .cfgoptsclrloop
 DEY
 STA cfgoptsbuff,Y
@@ -258,7 +261,7 @@ INY
 \ directive
 LDA (scratch),Y
 \ if configuration option...
-CMP #cfgoptsmax+1
+CMP #CFGMAX+1
 BCC cfgopt
 \ if end...
 CMP #CFG_END
@@ -357,21 +360,46 @@ LDA cfgoptsbuff,Y
 \ which haven't been set
 CMP #CFGVAL_UNSET
 BEQ cfgprocnext
+CPY #CFG_RESET
+BEQ cfgprocreset
 \ if this is a ROM option -
 \ check if ROM is to be cleared
-CMP #CFGVAL_WIPE
-BNE cfgprocopt
 CPY #CFG_ROMF+1
 BPL cfgprocopt
+CMP #CFGVAL_WIPE
+BNE cfgprocopt
 JMP wipe
 :
+.cfgprocnextpl
+\ restore current option number
+PLA
+TAY
 .cfgprocnext
-CPY #cfgoptsmax
+CPY #CFGMAX
 BNE cfgprocloop
 JMP exit
 :
+.cfgprocreset
+\ save current option number
+TYA
+PHA
+LDX #resetmsg MOD 256
+LDY #resetmsg DIV 256
+JSR printstr
+\ if in "show only" mode, skip
+\ the actual reset and move on
+LDA showonly
+BNE cfgprocnextpl
+\ set clear memory on BREAK
+LDA #200
+LDX #3
+LDY #0
+JSR OSBYTE
+\ jump to system reset address
+JMP (SYSRESET)
+:
 .cfgprocopt
-\ push the option number
+\ save current option number
 TYA
 PHA
 \ multiply the option number by
@@ -382,6 +410,8 @@ ASL A
 TAY
 \ copy the 4 bytes of the option
 \ string into the command buffer
+\ (offset to be -4 to -1 in
+\ addresses to make end=0)
 LDX #&100-4
 .sdcconfigcpyloop
 LDA sdcconfigtbl,Y
@@ -497,10 +527,7 @@ LDA showonly
 BNE skipsdccmd
 JSR XOSCLI
 .skipsdccmd
-\ retrieve option number
-PLA
-TAY
-JMP cfgprocnext
+JMP cfgprocnextpl
 :
 \ wipe ROM slot and set
 \ corresponding SDCCONFIG option
@@ -594,6 +621,9 @@ EQUS "Available setups (~ prefix = test):"+CR$
 EQUS "SRWIPE + "
 EQUB 0
 :
+.resetmsg
+EQUS "RESET"+CR$
+:
 \ table of setup option codes
 \ (base+opt*4 = code)
 .sdcconfigtbl
@@ -617,6 +647,8 @@ EQUS "FSNR"
 EQUS "F2NR"
 EQUS "FSRM"
 EQUS "F2RM"
+\ after this is RESET but that
+\ doesn't have a command
 :
 \ --- SETUP table ---
 :
@@ -724,6 +756,7 @@ EQUB CFG_ROMC:EQUB 0
 EQUB CFG_ROME:EQUB 0
 \ Master cartridge slots
 EQUB CFG_ROM1:EQUB 0
+EQUB CFG_RESET:EQUB 1
 EQUB CFG_END
 :
 .setup_b
@@ -846,8 +879,8 @@ O%=O%+256
 REM reserve space for config
 REM options
 cfgoptsbuff=P%
-P%=P%+cfgoptsmax+1
-O%=O%+cfgoptsmax+1
+P%=P%+CFGMAX+1
+O%=O%+CFGMAX+1
 :
 [ OPT opt%
 .showonly
@@ -865,7 +898,7 @@ NEXT
 :
 size%=end-target%
 PRINT "Assembled at &";~code%;"+";~size%;"(+";~(P%-end);")"
-IF NOT(test%) THEN params$=STR$~code%+"+"+STR$~size%+" "+STR$~(start OR &FFFF0000)+" "+STR$~(target% OR &FFFF0000):PRINT '"*SAVE .... ";params$'"or use OSCLI(""SAVE ... ""+params$)":END
+IF NOT(test%) THEN params$=STR$~code%+"+"+STR$~size%+" "+STR$~(target% OR &FFFF0000)+" "+STR$~(target% OR &FFFF0000):PRINT '"*SAVE .... ";params$'"or use OSCLI(""SAVE ... ""+params$)":END
 :
 REM test routine
 ON ERROR IF ERR=254 THEN REPORT:PRINT ELSE REPORT:PRINT " at line ";ERL:END
