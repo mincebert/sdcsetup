@@ -4,7 +4,7 @@ AUTO
 REM>$.Develop.GoSDCTools.SDCSetup
 REM rcf@mince.net
 :
-version$="v2.2"
+version$="v2.3"
 test%=FALSE
 :
 DIM code% &600
@@ -549,12 +549,12 @@ JMP cfgprocopt
 \ Electron and BBC
 LDX iselk
 BNE romselelk
-\ the BBC select page directly
+\ BBC selects page directly
 STY ROMSELCPY
 STY ROMSEL_BBC
 RTS
 .romselelk
-\ electron must first page in
+\ Electron must first page in
 \ &C-F, then the desired page
 LDX #&C
 STX ROMSELCPY
@@ -662,6 +662,10 @@ EQUS "B-SDC"
 EQUB 0
 EQUW setup_b_sdc
 :
+EQUS "B-DISC"
+EQUB 0
+EQUW setup_b_disc
+:
 EQUS "B-MMFS"
 EQUB 0
 EQUW setup_b_swmmfs
@@ -709,10 +713,10 @@ EQUB CFG_F2NR:EQUB 0
 \ have no effect unless FSs are
 \ specified; also set them to
 \ 'enabled'
-EQUB CFG_FSRM:EQUB 4
-EQUB CFG_F2RM:EQUB 5
-EQUB CFG_ROM4:EQUB CFGVAL_WIPE
-EQUB CFG_ROM5:EQUB CFGVAL_WIPE
+EQUB CFG_FSRM:EQUB 6
+EQUB CFG_F2RM:EQUB 7
+EQUB CFG_ROM6:EQUB CFGVAL_WIPE
+EQUB CFG_ROM7:EQUB CFGVAL_WIPE
 \ these are other ROMs we fiddle
 \ with the status of, in various
 \ setups
@@ -726,7 +730,7 @@ EQUB CFG_END
 \ B/B+ with GoSDC DFS
 EQUB CFG_INC:EQUW setup_zero
 EQUB CFG_FSNR:EQUB 2 \ GoSDC 1.20/2.00 DFS
-EQUB CFG_ROM4:EQUB 2 \ GoSDC DFS reinsert
+EQUB CFG_ROM6:EQUB 2 \ GoSDC DFS reinsert
 EQUB CFG_ROME:EQUB 1 \ ROM DFS
 EQUB CFG_ROMC:EQUB 1 \ ROM BE
 EQUB CFG_ROM1:EQUB 1 \ Cart MAMMXFS
@@ -737,7 +741,16 @@ EQUB CFG_END
 \ (+ disable F2RM in case old
 \ ROM remains)
 EQUB CFG_INC:EQUW setup_b
-EQUB CFG_ROM5:EQUB CFGVAL_WIPE
+EQUB CFG_ROM7:EQUB CFGVAL_WIPE
+EQUB CFG_END
+:
+.setup_b_disc
+\ B/B+ with disc DFS
+\ (+ disable FSRM+F2RM in case
+\ old ROM remains)
+EQUB CFG_INC:EQUW setup_b
+EQUB CFG_FSNR:EQUB 0
+EQUB CFG_ROME:EQUB 0 \ ROM DFS
 EQUB CFG_END
 :
 .setup_b_swmmxfs
@@ -752,7 +765,7 @@ EQUB CFG_END
 \ ROM remains)
 EQUB CFG_INC:EQUW setup_b
 EQUB CFG_FSNR:EQUB 161 \ SWMMFS
-EQUB CFG_ROM5:EQUB CFGVAL_WIPE
+EQUB CFG_ROM7:EQUB CFGVAL_WIPE
 EQUB CFG_END
 :
 .setup_b_mmfs
@@ -761,7 +774,7 @@ EQUB CFG_END
 \ ROM remains)
 EQUB CFG_INC:EQUW setup_b
 EQUB CFG_FSNR:EQUB 160 \ MMFS
-EQUB CFG_ROM5:EQUB CFGVAL_WIPE
+EQUB CFG_ROM7:EQUB CFGVAL_WIPE
 EQUB CFG_END
 :
 .setup_b_adfs
@@ -775,7 +788,7 @@ EQUB CFG_END
 EQUB CFG_INC:EQUW setup_zero
 EQUB CFG_FSNR:EQUB 4 \ SDC 3.20 DFS
 EQUB CFG_F2NR:EQUB 5 \ SDC 3.20 ADFS
-EQUB CFG_ROM4:EQUB 2 \ SDC DFS reinsert
+EQUB CFG_ROM6:EQUB 2 \ SDC DFS reinsert
 EQUB CFG_END
 :
 .setup_master350
@@ -783,7 +796,7 @@ EQUB CFG_END
 EQUB CFG_INC:EQUW setup_zero
 EQUB CFG_FSNR:EQUB 6 \ SDC 3.50 DFS
 EQUB CFG_F2NR:EQUB 7 \ SDC 3.50 ADFS
-EQUB CFG_ROM4:EQUB 2 \ SDC DFS reinsert
+EQUB CFG_ROM6:EQUB 2 \ SDC DFS reinsert
 EQUB CFG_END
 :
 .subsetup_master350_sdc
@@ -852,7 +865,7 @@ NEXT
 :
 size%=end-target%
 PRINT "Assembled at &";~code%;"+";~size%;"(+";~(P%-end);")"
-IF NOT(test%) THEN params$=STR$~code%+"+"+STR$~size%+" "+STR$~(target% OR &FFFF0000)+" "+STR$~(target% OR &FFFF0000):PRINT '"*SAVE .... ";params$'"or use OSCLI(""SAVE ... ""+params$)":END
+IF NOT(test%) THEN params$=STR$~code%+"+"+STR$~size%+" "+STR$~(start OR &FFFF0000)+" "+STR$~(target% OR &FFFF0000):PRINT '"*SAVE .... ";params$'"or use OSCLI(""SAVE ... ""+params$)":END
 :
 REM test routine
 ON ERROR IF ERR=254 THEN REPORT:PRINT ELSE REPORT:PRINT " at line ";ERL:END
