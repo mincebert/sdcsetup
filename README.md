@@ -7,6 +7,10 @@ running miscellaneous other *commands: by storing the commands in a `*SDCTOOL`
 means they're always available, rather than needing to "insert" a disc with a
 `*EXEC` file on, for example (this is the whole point of `*SDCTOOL`s).
 
+The program can also be run directly from the command line with
+`*RUN X.SDCSET`, which is useful if you have a Tube processor and can be a
+little shorter to type.
+
 The two main use cases I have for it are:
 
 * I have a RetroClinic MultiOS for my BBC Master - I want to easily select between appropriate configurations for the B, B+, Master 3.20 and Master 3.50 MOSs (with the associated SWROMs in those options)
@@ -98,6 +102,7 @@ The actual setup actions are listed below it:
 
 - `EQUB CFG_INC:EQUW xxx` includes another setup's actions, with the setup name identified as `xxx` (matching the label `.xxx`, not the name of the setup the user would enter)
 - `EQUB CFG_xxxx:EQUB y` sets a particular SDCCONFIG option `xxxx` to value `y`
+- `EQUB CFG_RESET:EQUB 1` will force a hard reset at the end of all other commands (equivalent of `*FX 200,3` and `CALL !-4`)
 - `EQUB CFG_END` ends the list of the setup's actions
 
 You can also execute a OS (star) command by putting it directly as a value
