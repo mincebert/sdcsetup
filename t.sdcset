@@ -4,7 +4,7 @@ AUTO
 REM>$.Develop.GoSDCTools.SDCSetup
 REM rcf@mince.net
 :
-version$="v3.0"
+version$="v3.1"
 test%=FALSE
 :
 DIM code% &600
@@ -745,6 +745,10 @@ EQUS "+M-DISC"
 EQUB 0
 EQUW subsetup_master350_disc
 :
+EQUS "+M-DFS"
+EQUB 0
+EQUW subsetup_master350_dfs
+:
 EQUS "VERSION"
 EQUB 0
 EQUW setup_version
@@ -855,9 +859,9 @@ EQUB CFG_END
 \ MOS 3.50 with GoSDC DFS+ADFS
 \ (switch from Master)
 EQUB CFG_INC:EQUW setup_master350
-EQUS "UNPLUG &9"+CR$ \ ROM DFS
-EQUS "UNPLUG &D"+CR$ \ ROM ADFS
-EQUS "CONFIGURE FILE &5"+CR$ \ SDC DFS
+EQUS "UNPLUG &9"+CR$ \ disc DFS
+EQUS "UNPLUG &D"+CR$ \ disc ADFS
+EQUS "CONFIGURE FILE &7"+CR$ \ GoSDC ADFS
 EQUB CFG_END
 :
 .subsetup_master350_disc
@@ -866,7 +870,17 @@ EQUB CFG_END
 EQUB CFG_INC:EQUW setup_zero
 EQUS "INSERT &9"+CR$ \ ROM DFS
 EQUS "INSERT &D"+CR$ \ ROM ADFS
-EQUS "CONFIGURE FILE &9"+CR$ \ ROM DFS
+EQUS "CONFIGURE FILE &9"+CR$ \ disc DFS
+EQUB CFG_END
+:
+.subsetup_master350_dfs
+\ MOS 3.50 with GoSDC ADFS +
+\ disc DFS (switch from Master)
+EQUB CFG_INC:EQUW setup_master350
+EQUB CFG_ROM6:EQUB 0 \ SDC DFS nothing
+EQUS "INSERT &9"+CR$ \ disc DFS
+EQUS "UNPLUG &D"+CR$ \ disc ADFS
+EQUS "CONFIGURE FILE &7"+CR$ \ GoSDC ADFS
 EQUB CFG_END
 :
 .setup_version
