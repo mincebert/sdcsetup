@@ -4,7 +4,7 @@ AUTO
 REM>$.Develop.GoSDCTools.SDCSetup
 REM rcf@mince.net
 :
-version$="v3.2"
+version$="v3.2.1"
 test%=FALSE
 :
 DIM code% &600
@@ -414,7 +414,12 @@ LDA #200
 LDX #3
 LDY #0
 JSR OSBYTE
-\ jump to system reset address
+
+LDX #sdcreset MOD 256
+LDY #sdcreset DIV 256
+JSR XOSCLI
+\ we shouldn't get here, but
+\ just in case, we reset
 JMP (SYSRESET)
 :
 .cfgprocopt
@@ -853,6 +858,11 @@ EQUB CFG_END
 EQUS "| "+version$+CR$
 EQUB CFG_END
 :
+\ "SDCRESET" command
+.sdcreset
+EQUS "SDCRESET"
+BRK
+:
 \ "SDCCONFIG" command prefix; is
 \ placed before *command buffer
 \ so commands can be written
@@ -861,16 +871,22 @@ EQUB CFG_END
 .sdccmdbuff
 EQUS "SDCCONFIG "
 :
+.oscmdbuff
+\ space reserved for *command
+\ buffer (can be used directly
+\ for just command, or at
+\ sdccmdbuff, above, for
+\ "*SDCCONFIG ...")
+:
 .end
 \ this is the end of the code
 \ that must be saved to disc
 \ (everything following is just
-\ reserving memory)
+\ calculating addresses)
 ]
 :
 REM reserve space for *command
 REM buffer
-oscmdbuff=P%
 P%=P%+256
 O%=O%+256
 :
