@@ -4,7 +4,7 @@ AUTO
 REM>$.Develop.GoSDCTools.SDCSetup
 REM rcf@mince.net
 :
-version$="v3.1"
+version$="v3.2"
 test%=FALSE
 :
 DIM code% &600
@@ -707,10 +707,6 @@ EQUW setup_zero
 :
 EQUS "B"
 EQUB 0
-EQUW setup_b_swmmxfs
-:
-EQUS "B-SDC"
-EQUB 0
 EQUW setup_b_sdc
 :
 EQUS "B-DISC"
@@ -720,10 +716,6 @@ EQUW setup_b_disc
 EQUS "B-MMFS"
 EQUB 0
 EQUW setup_b_swmmfs
-:
-EQUS "B-OMMFS"
-EQUB 0
-EQUW setup_b_mmfs
 :
 EQUS "B-ADFS"
 EQUB 0
@@ -777,66 +769,39 @@ EQUB CFG_ROM7:EQUB CFGVAL_WIPE
 \ setups
 EQUB CFG_ROMC:EQUB 0
 EQUB CFG_ROME:EQUB 0
-\ Master cartridge slots
+\ Master cartridge slot
 EQUB CFG_ROM1:EQUB 0
 EQUB CFG_RESET:EQUB 1
 EQUB CFG_END
 :
-.setup_b
-\ B/B+ with GoSDC DFS
+.setup_b_disc
+\ B/B+ with disc DFS+SWMMXFS
 EQUB CFG_INC:EQUW setup_zero
-EQUB CFG_FSNR:EQUB 2 \ GoSDC 1.20/2.00 DFS
-EQUB CFG_ROM6:EQUB 2 \ GoSDC DFS reinsert
-EQUB CFG_ROME:EQUB 1 \ ROM DFS
-EQUB CFG_ROMC:EQUB 1 \ ROM BE
+EQUB CFG_FSNR:EQUB 162 \ SWMMXFS
+EQUB CFG_ROM6:EQUB 0
 EQUB CFG_ROM1:EQUB 1 \ Cart MAMMXFS
+EQUB CFG_ROMC:EQUB 1 \ ROM BE
 EQUB CFG_END
 :
 .setup_b_sdc
-\ B/B+ with GoSDC DFS
-\ (+ disable F2RM in case old
-\ ROM remains)
-EQUB CFG_INC:EQUW setup_b
-EQUB CFG_ROM7:EQUB CFGVAL_WIPE
-EQUB CFG_END
-:
-.setup_b_disc
-\ B/B+ with disc DFS
-\ (+ disable FSRM+F2RM in case
-\ old ROM remains)
-EQUB CFG_INC:EQUW setup_b
-EQUB CFG_FSNR:EQUB 0
-EQUB CFG_ROME:EQUB 0 \ ROM DFS
-EQUB CFG_END
-:
-.setup_b_swmmxfs
 \ B/B+ with GoSDC DFS+SWMMXFS
-EQUB CFG_INC:EQUW setup_b
-EQUB CFG_F2NR:EQUB 162 \ SWMMXFS
+EQUB CFG_INC:EQUW setup_b_disc
+EQUB CFG_F2NR:EQUB 2 \ GoSDC 1.20/2.00 DFS
+EQUB CFG_ROM7:EQUB 2
+EQUB CFG_ROME:EQUB 1 \ ROM DFS
 EQUB CFG_END
 :
 .setup_b_swmmfs
 \ B/B+ with SWMMFS
-\ (+ disable F2RM in case old
-\ ROM remains)
-EQUB CFG_INC:EQUW setup_b
+EQUB CFG_INC:EQUW setup_b_disc
 EQUB CFG_FSNR:EQUB 161 \ SWMMFS
-EQUB CFG_ROM7:EQUB CFGVAL_WIPE
-EQUB CFG_END
-:
-.setup_b_mmfs
-\ B/B+ with MMFS
-\ (+ disable F2RM in case old
-\ ROM remains)
-EQUB CFG_INC:EQUW setup_b
-EQUB CFG_FSNR:EQUB 160 \ MMFS
-EQUB CFG_ROM7:EQUB CFGVAL_WIPE
+EQUB CFG_ROME:EQUB 1 \ ROM DFS
 EQUB CFG_END
 :
 .setup_b_adfs
 \ B/B+ with GoSDC DFS+ADFS
-EQUB CFG_INC:EQUW setup_b
-EQUB CFG_F2NR:EQUB 3 \ SDC 1.20/2.00 ADFS
+EQUB CFG_INC:EQUW setup_b_sdc
+EQUB CFG_FSNR:EQUB 3 \ SDC 1.20/2.00 ADFS
 EQUB CFG_END
 :
 .setup_master320
